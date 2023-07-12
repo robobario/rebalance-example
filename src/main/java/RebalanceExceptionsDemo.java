@@ -42,13 +42,14 @@ class RebalanceExceptionsDemo {
 
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 5000);
+        int maxPollMs = 5000;
+        consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, maxPollMs);
         consumerProps.put(GROUP_ID_CONFIG, UUID.randomUUID().toString());
         consumerProps.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, "org.apache.kafka.clients.consumer.CooperativeStickyAssignor");
         consumerProps.put(ENABLE_AUTO_COMMIT_CONFIG, false);
 
         ExecutorService executorService = Executors.newFixedThreadPool(3);
-        consume(consumerProps, executorService, "consumer1", topic, 5100);
+        consume(consumerProps, executorService, "consumer1", topic, maxPollMs + 100);
         consume(consumerProps, executorService, "consumer2", topic, 0);
         consume(consumerProps, executorService, "consumer3", topic, 0);
         executorService.shutdown();
