@@ -61,15 +61,17 @@ class RestartExceptionsDemo {
     private static void consume(Map<String, Object> consumerProps, ExecutorService executorService, final String consumerName, String topic, int delay) {
         final KafkaConsumer<String, String>[] consumer = new KafkaConsumer[]{new KafkaConsumer<>(consumerProps, new StringDeserializer(), new StringDeserializer())};
         consumer[0].subscribe(List.of(topic), new RebalanceSouter(consumerName));
-        AtomicLong counter = new AtomicLong(0);
+        int seed = ThreadLocalRandom.current().nextInt() % 10000; // jitter the first restart
+        final long[] nextRestart = {System.currentTimeMillis() + seed};
         executorService.submit(() -> {
             try {
                 while (true) {
-                    if(ThreadLocalRandom.current().nextInt() % 20 == 0) {
+                    if(System.currentTimeMillis() > nextRestart[0]) {
                         System.out.println(consumerName + ": restarting");
                         consumer[0].close();
                         consumer[0] = new KafkaConsumer<>(consumerProps, new StringDeserializer(), new StringDeserializer());
                         consumer[0].subscribe(List.of(topic));
+                        nextRestart[0] = nextRestart[0] + 10000; // restart every 10 seconds
                     }
                     pollAndPrint(consumer[0], consumerName, delay);
                     consumer[0].commitSync();
