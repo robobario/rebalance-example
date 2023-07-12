@@ -37,7 +37,7 @@ class RebalanceExceptionsDemo {
         AtomicLong toSend = new AtomicLong(1);
         ScheduledExecutorService producerService = Executors.newScheduledThreadPool(1);
         producerService.scheduleWithFixedDelay(() -> {
-            producer.send(new ProducerRecord<>(topic, null, String.valueOf(toSend.incrementAndGet())));
+            producer.send(new ProducerRecord<>(topic, String.valueOf(toSend.incrementAndGet()), String.valueOf(toSend.incrementAndGet())));
         }, 0, 500, TimeUnit.MILLISECONDS);
 
         Map<String, Object> consumerProps = new HashMap<>();
@@ -48,28 +48,28 @@ class RebalanceExceptionsDemo {
         consumerProps.put(ENABLE_AUTO_COMMIT_CONFIG, false);
 
         ExecutorService executorService = Executors.newFixedThreadPool(3);
-        consume(consumerProps, executorService, "consumer1", topic);
-        consume(consumerProps, executorService, "consumer2", topic);
-        consume(consumerProps, executorService, "consumer3", topic);
+        consume(consumerProps, executorService, "consumer1", topic, 100);
+        consume(consumerProps, executorService, "consumer2", topic, 100);
+        consume(consumerProps, executorService, "consumer3", topic, 1000);
         executorService.shutdown();
         executorService.awaitTermination(1, TimeUnit.HOURS);
         producerService.shutdownNow();
         System.out.println("all consumer threads are dead :(");
     }
 
-    private static void consume(Map<String, Object> consumerProps, ExecutorService executorService, final String consumerName, String topic) {
+    private static void consume(Map<String, Object> consumerProps, ExecutorService executorService, final String consumerName, String topic, int delay) {
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps, new StringDeserializer(), new StringDeserializer());
         consumer.subscribe(List.of(topic));
         executorService.submit(() -> {
             try {
                 while (true) {
                     pollAndPrint(consumer, consumerName);
-                    Thread.sleep(1000);
+                    Thread.sleep(delay);
                     consumer.commitSync();
                 }
             }
             catch (Exception e) {
-                System.out.println("Failure! Thread dying: " + e.getMessage());
+                System.out.println(consumerName + ": Failure! Thread dying: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         });
     }
