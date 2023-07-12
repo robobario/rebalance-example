@@ -10,7 +10,7 @@ You should see exceptions across all 3 consumers, what we are looking for is tha
 more than the max.poll.interval.ms to process it's record and therefore commitSync fails. This then
 appears to result in a RebalanceInProgressException in the other consumers.
 
-a rebalance.
+Here are the results using CooperativeStickyAssignor
 ```
 consumer3: assigned [test-24e4323f-7c37-414d-ad8a-1cb30e8fe50c-2]
 consumer1: assigned [test-24e4323f-7c37-414d-ad8a-1cb30e8fe50c-0]
@@ -35,7 +35,7 @@ consumer3: Failure! Thread dying: RebalanceInProgressException: Offset commit ca
 all consumer threads are dead :(
 ```
 
-If you switch to RangeAssignor then it appears only the consumer that is taking too long to process records dies:
+If you switch to RangeAssignor then it appears only the consumer that is taking too long to process records throws an exception, the other consumers see a revoke+assign and continue consuming.
 ```
 consumer2: assigned [test-dfb111cd-99c6-4000-98da-855f23a1b426-1]
 consumer3: assigned [test-dfb111cd-99c6-4000-98da-855f23a1b426-2]
