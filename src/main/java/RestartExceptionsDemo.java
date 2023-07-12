@@ -43,7 +43,7 @@ class RestartExceptionsDemo {
 
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000);
+        consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 5000);
         consumerProps.put(GROUP_ID_CONFIG, UUID.randomUUID().toString());
         consumerProps.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, "org.apache.kafka.clients.consumer.CooperativeStickyAssignor");
         consumerProps.put(ENABLE_AUTO_COMMIT_CONFIG, false);
@@ -60,7 +60,7 @@ class RestartExceptionsDemo {
 
     private static void consume(Map<String, Object> consumerProps, ExecutorService executorService, final String consumerName, String topic, int delay) {
         final KafkaConsumer<String, String>[] consumer = new KafkaConsumer[]{new KafkaConsumer<>(consumerProps, new StringDeserializer(), new StringDeserializer())};
-        consumer[0].subscribe(List.of(topic));
+        consumer[0].subscribe(List.of(topic), new RebalanceSouter(consumerName));
         AtomicLong counter = new AtomicLong(0);
         executorService.submit(() -> {
             try {
@@ -71,8 +71,7 @@ class RestartExceptionsDemo {
                         consumer[0] = new KafkaConsumer<>(consumerProps, new StringDeserializer(), new StringDeserializer());
                         consumer[0].subscribe(List.of(topic));
                     }
-                    pollAndPrint(consumer[0], consumerName);
-                    Thread.sleep(delay);
+                    pollAndPrint(consumer[0], consumerName, delay);
                     consumer[0].commitSync();
                 }
             }
@@ -82,10 +81,15 @@ class RestartExceptionsDemo {
         });
     }
 
-    private static void pollAndPrint(KafkaConsumer<String, String> consumer, String consumerName) {
+    private static void pollAndPrint(KafkaConsumer<String, String> consumer, String consumerName, int delay) {
         ConsumerRecords<String, String> poll = consumer.poll(Duration.ofMillis(100));
         poll.forEach(r -> {
             System.out.println(consumerName + ":" + r.value());
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         });
     }
 }

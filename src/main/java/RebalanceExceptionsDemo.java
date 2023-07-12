@@ -42,15 +42,15 @@ class RebalanceExceptionsDemo {
 
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000);
+        consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 5000);
         consumerProps.put(GROUP_ID_CONFIG, UUID.randomUUID().toString());
         consumerProps.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, "org.apache.kafka.clients.consumer.CooperativeStickyAssignor");
         consumerProps.put(ENABLE_AUTO_COMMIT_CONFIG, false);
 
         ExecutorService executorService = Executors.newFixedThreadPool(3);
-        consume(consumerProps, executorService, "consumer1", topic, 100);
-        consume(consumerProps, executorService, "consumer2", topic, 100);
-        consume(consumerProps, executorService, "consumer3", topic, 1000);
+        consume(consumerProps, executorService, "consumer1", topic, 5100);
+        consume(consumerProps, executorService, "consumer2", topic, 0);
+        consume(consumerProps, executorService, "consumer3", topic, 0);
         executorService.shutdown();
         executorService.awaitTermination(1, TimeUnit.HOURS);
         producerService.shutdownNow();
@@ -59,12 +59,11 @@ class RebalanceExceptionsDemo {
 
     private static void consume(Map<String, Object> consumerProps, ExecutorService executorService, final String consumerName, String topic, int delay) {
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps, new StringDeserializer(), new StringDeserializer());
-        consumer.subscribe(List.of(topic));
+        consumer.subscribe(List.of(topic), new RebalanceSouter(consumerName));
         executorService.submit(() -> {
             try {
                 while (true) {
-                    pollAndPrint(consumer, consumerName);
-                    Thread.sleep(delay);
+                    pollAndPrint(consumer, consumerName, delay);
                     consumer.commitSync();
                 }
             }
@@ -74,10 +73,15 @@ class RebalanceExceptionsDemo {
         });
     }
 
-    private static void pollAndPrint(KafkaConsumer<String, String> consumer, String consumerName) {
-        ConsumerRecords<String, String> poll = consumer.poll(Duration.ofMillis(100));
+    private static void pollAndPrint(KafkaConsumer<String, String> consumer, String consumerName, int delay) {
+        ConsumerRecords<String, String> poll = consumer.poll(Duration.ofMillis(0));
         poll.forEach(r -> {
             System.out.println(consumerName + ":" + r.value());
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         });
     }
 }
